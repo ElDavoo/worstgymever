@@ -97,6 +97,8 @@ void usaattrezzo(struct palestra_t *p,
     }
     // Non ci sono attrezzi liberi
     coda_add(&p->attrezzi[tipoattrezzo].coda, numeropersona);
+    // ERRORE 1: "Dimenticato" (era presente in brutta copia!! :-( ) post del mutex!
+    sem_post(&p->mutex[tipoattrezzo]);
     sem_wait(&p->persone[numeropersona]);
     // Ora c'è un attrezzo, ripetiamo la stessa ricerca
     for (int i=0; i<M; i++){
