@@ -1,8 +1,7 @@
-#define N 10
-#define M 6
-#define P 100
-#define E 99999
-#include <stdbool.h>
+#define N 1
+#define M 1
+#define P 3
+#define E 2147483647
 #include <semaphore.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -24,12 +23,19 @@ int coda_isempty(struct coda_t *c){
     return i;
 }
 
+void coda_dump(struct coda_t *c){
+    printf("%d: ", c->size);
+    for (int i=0; i<c->size; i++){
+        printf("%d ", c->coda[i]);
+    }
+    printf("\n");
+}
+
 void coda_add(struct coda_t *c, int persona){
     sem_wait(&c->mutex);
-    c->coda[c->size]=p;
+    c->coda[c->size]=persona;
     c->size++;
     sem_post(&c->mutex);
-    return;
 }
 
 int coda_rm(struct coda_t *c){
@@ -39,18 +45,18 @@ int coda_rm(struct coda_t *c){
         c->coda[i]=c->coda[i+1];
     }
     c->size--;
-    sem_signal(&c->mutex);
+    sem_post(&c->mutex);
     return p;
 }
 
 struct attrezzo_t {
     stato_t stato[M];
     int persona[M]; // Chi ha l'attrezzo
-    coda_t coda; // Chi sta aspettando l'attrezzo
+    struct coda_t coda; // Chi sta aspettando l'attrezzo
 };
 
 struct palestra_t {
-    attrezzo_t attrezzi[N];
+    struct attrezzo_t attrezzi[N];
     sem_t mutex[N]; // Per ogni categoria di attrezzi
     sem_t persone[P]; // Semafori privati x aspettare
 } palestra;
@@ -62,7 +68,7 @@ void init_palestra(struct palestra_t *s){
             s->attrezzi[i].persona[j]=-1;
         }
         s->attrezzi[i].coda.size=0;
-        sem_init(&s->attrezzi[i]->coda->mutex, 0, 1);
+        sem_init(&s->attrezzi[i].coda.mutex, 0, 1);
         sem_init(&s->mutex[i], 0, 1);
     }
     for (int i=0; i<P; i++){
@@ -74,29 +80,29 @@ void usaattrezzo(struct palestra_t *p,
         int numeropersona, int tipoattrezzo){
     sem_wait(&p->mutex[tipoattrezzo]);
     for (int i=0; i<M; i++){
-        if (p->attrezzi[tipoattrezzo]->persona[i]==numeropersona
-        && p->attrezzi[tipoattrezzo]->stato[i] == BOOKED){
-            p->attrezzi[tipoattrezzo]->stato[i] = BUSY;
+        if (p->attrezzi[tipoattrezzo].persona[i]==numeropersona
+        && p->attrezzi[tipoattrezzo].stato[i] == BOOKED){
+            p->attrezzi[tipoattrezzo].stato[i] = BUSY;
             sem_post(&p->mutex[tipoattrezzo]);
             return;
         }
     } // Teoricamente si potrebbe fare un unico ciclo...
     for (int i=0; i<M; i++){
-        if (p->attrezzi[tipoattrezzo]->stato[i] == FREE){
-            p->attrezzi[tipoattrezzo]->stato[i] = BUSY;
-            p->attrezzi[tipoattrezzo]->persona[i] = numeropersona;
+        if (p->attrezzi[tipoattrezzo].stato[i] == FREE){
+            p->attrezzi[tipoattrezzo].stato[i] = BUSY;
+            p->attrezzi[tipoattrezzo].persona[i] = numeropersona;
             sem_post(&p->mutex[tipoattrezzo]);
             return;
         }
     }
     // Non ci sono attrezzi liberi
-    coda_add(&p->attrezzi[tipoattrezzo]->coda, numeropersona);
+    coda_add(&p->attrezzi[tipoattrezzo].coda, numeropersona);
     sem_wait(&p->persone[numeropersona]);
     // Ora c'è un attrezzo, ripetiamo la stessa ricerca
     for (int i=0; i<M; i++){
-        if (p->attrezzi[tipoattrezzo]->stato[i]==FREE){
-            p->attrezzi[tipoattrezzo]->persona[i]=numeropersona;
-            p->attrezzi[tipoattrezzo]->stato[i]=BUSY;
+        if (p->attrezzi[tipoattrezzo].stato[i]==FREE){
+            p->attrezzi[tipoattrezzo].persona[i]=numeropersona;
+            p->attrezzi[tipoattrezzo].stato[i]=BUSY;
             sem_post(&p->mutex[tipoattrezzo]);
             return;
         }
@@ -107,9 +113,9 @@ void prenota(struct palestra_t *p, int numeropersona,
         int tipoattrezzo){
     sem_wait(&p->mutex[tipoattrezzo]);
     for (int i=0; i<M; i++){
-        if (p->attrezzi[tipoattrezzo]->stato[i]==FREE){
-            p->attrezzi[tipoattrezzo]->stato[i]=BOOKED;
-            p->attrezzi[tipoattrezzo]->persona[i]=numeropersona;
+        if (p->attrezzi[tipoattrezzo].stato[i]==FREE){
+            p->attrezzi[tipoattrezzo].stato[i]=BOOKED;
+            p->attrezzi[tipoattrezzo].persona[i]=numeropersona;
             sem_post(&p->mutex[tipoattrezzo]);
             return;
         }
@@ -121,17 +127,17 @@ void fineuso(struct palestra_t *p, int numeropersona, int
         tipoattrezzo){
     sem_wait(&p->mutex[tipoattrezzo]);
     for (int i=0;i<M;i++){
-        if (p->attrezzi[tipoattrezzo]->persona[i]==numeropersona
-        && p->attrezzi[tipoattrezzo]->stato[i] == BUSY){
-            p->attrezzi[tipoattrezzo]->persona[i]=-1;
-            p->attrezzi[tipoattrezzo]->stato[i]=FREE;
+        if (p->attrezzi[tipoattrezzo].persona[i]==numeropersona
+        && p->attrezzi[tipoattrezzo].stato[i] == BUSY){
+            p->attrezzi[tipoattrezzo].persona[i]=-1;
+            p->attrezzi[tipoattrezzo].stato[i]=FREE;
             break;
         }
     }
-    if (coda_isempty(p->attrezzi[tipoattrezzo]->coda)){
+    if (coda_isempty(&p->attrezzi[tipoattrezzo].coda)){
         sem_post(&p->mutex[tipoattrezzo]);
     } else {
-        sem_post(&p->persone[coda_rm(p->attrezzi[tipoattrezzo]->coda)]);
+        sem_post(&p->persone[coda_rm(&p->attrezzi[tipoattrezzo].coda)]);
     }
 }
 
@@ -141,19 +147,27 @@ void *persona(void *arg)
     int numeropersona = (int)arg;
     int attrezzocorrente = rand()%N;
     int prossimoattrezzo = rand()%N;
-    for (i=E; i>0; i--)
+    for (i=E-1; i>=0; i--)
     {
+        printf("%d usa %d\n", numeropersona, attrezzocorrente);
         usaattrezzo(&palestra, numeropersona, attrezzocorrente);
+        printf("%d ha usato %d\n", numeropersona, attrezzocorrente);
+        printf("%d prenota %d\n", numeropersona, prossimoattrezzo);
         if (i!=0) prenota(&palestra, numeropersona, prossimoattrezzo);
+        printf("%d ha prenotato %d\n", numeropersona, prossimoattrezzo);
+        printf("%d finisce %d\n", numeropersona, attrezzocorrente);
         fineuso(&palestra, numeropersona, attrezzocorrente);
+        printf("%d ha finito %d\n", numeropersona, attrezzocorrente);
         if (i!=0) {
             attrezzocorrente = prossimoattrezzo;
             prossimoattrezzo = rand()%N;
         }
     }
+    printf("%d ha finito di usare la palestra!", numeropersona);
+    return NULL;
 }
 
-int main(int argc, char *argv[])
+int main()
 {
     srand(123);
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -165,8 +179,8 @@ int main(int argc, char *argv[])
     init_palestra(&palestra);
     for (i=0; i<P; i++)
     {
-        pthread_create(&thread[i], &a, persona, (void *)i);
+        pthread_create(&thread[i], 0, persona, (void *)i);
     }
-    sleep(1);
+    pthread_join(thread[0], 0);
     return 0;
 }
