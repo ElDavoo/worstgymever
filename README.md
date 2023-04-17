@@ -18,7 +18,7 @@ libero.
 Altrimenti, l'accesso alle macchine è in ordine di arrivo.
 ```c
 struct palestra_t { ... } palestra;
-void ìnit_palestra(struct palestra_t *s);
+void init_palestra(struct palestra_t *s);
 void usaattrezzo(struct palestra_t *p, int numeropersona, int tipoattrezzo);
 void prenota(struct palestra_t *p, int numeropersona, int tipoattrezzo);
 void fineuso(struct palestra_t *p, int numeropersona, int tipoattrezzo);

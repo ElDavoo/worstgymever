@@ -1,3 +1,14 @@
+#define N 10
+#define M 6
+#define P 100
+#define E 99999
+#include <stdbool.h>
+#include <semaphore.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 typedef enum { FREE, BOOKED, BUSY} stato_t;
 struct coda_t{
     sem_t mutex;
@@ -59,7 +70,7 @@ void init_palestra(struct palestra_t *s){
     }
 }
 
-void usaatrrezzo(struct palestra_t *p,
+void usaattrezzo(struct palestra_t *p,
         int numeropersona, int tipoattrezzo){
     sem_wait(&p->mutex[tipoattrezzo]);
     for (int i=0; i<M; i++){
@@ -122,4 +133,40 @@ void fineuso(struct palestra_t *p, int numeropersona, int
     } else {
         sem_post(&p->persone[coda_rm(p->attrezzi[tipoattrezzo]->coda)]);
     }
+}
+
+void *persona(void *arg)
+{
+    int i;
+    int numeropersona = (int)arg;
+    int attrezzocorrente = rand()%N;
+    int prossimoattrezzo = rand()%N;
+    for (i=E; i>0; i--)
+    {
+        usaattrezzo(&palestra, numeropersona, attrezzocorrente);
+        if (i!=0) prenota(&palestra, numeropersona, prossimoattrezzo);
+        fineuso(&palestra, numeropersona, attrezzocorrente);
+        if (i!=0) {
+            attrezzocorrente = prossimoattrezzo;
+            prossimoattrezzo = rand()%N;
+        }
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    srand(123);
+    setvbuf(stdout, NULL, _IONBF, 0);
+    pthread_attr_t a;
+    pthread_attr_init(&a);
+    pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
+    int i;
+    pthread_t thread[P];
+    init_palestra(&palestra);
+    for (i=0; i<P; i++)
+    {
+        pthread_create(&thread[i], &a, persona, (void *)i);
+    }
+    sleep(1);
+    return 0;
 }
