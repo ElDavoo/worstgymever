@@ -8,6 +8,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+void pausetta(void){
+    struct timespec t;
+    t.tv_sec = 0;
+    t.tv_nsec = (rand()%100000);
+    nanosleep(&t, NULL);
+}
+
 typedef enum { FREE, BOOKED, BUSY} stato_t;
 struct coda_t{
     sem_t mutex;
@@ -16,10 +23,15 @@ struct coda_t{
 };
 
 int coda_isempty(struct coda_t *c){
+    pausetta();
     int i;
+    pausetta();
     sem_wait(&c->mutex);
+    pausetta();
     i=c->size==0;
+    pausetta();
     sem_post(&c->mutex);
+    pausetta();
     return i;
 }
 
@@ -32,20 +44,32 @@ void coda_dump(struct coda_t *c){
 }
 
 void coda_add(struct coda_t *c, int persona){
+    pausetta();
     sem_wait(&c->mutex);
+    pausetta();
     c->coda[c->size]=persona;
+    pausetta();
     c->size++;
+    pausetta();
     sem_post(&c->mutex);
+    pausetta();
 }
 
 int coda_rm(struct coda_t *c){
+    pausetta();
     sem_wait(&c->mutex);
+    pausetta();
     int p=c->coda[0];
+    pausetta();
     for (int i=0; i<c->size; i++){
+        pausetta();
         c->coda[i]=c->coda[i+1];
     }
+    pausetta();
     c->size--;
+    pausetta();
     sem_post(&c->mutex);
+    pausetta();
     return p;
 }
 
@@ -78,34 +102,55 @@ void init_palestra(struct palestra_t *s){
 
 void usaattrezzo(struct palestra_t *p,
         int numeropersona, int tipoattrezzo){
+    pausetta();
     sem_wait(&p->mutex[tipoattrezzo]);
+    pausetta();
     for (int i=0; i<M; i++){
+        pausetta();
         if (p->attrezzi[tipoattrezzo].persona[i]==numeropersona
         && p->attrezzi[tipoattrezzo].stato[i] == BOOKED){
+            pausetta();
             p->attrezzi[tipoattrezzo].stato[i] = BUSY;
+            pausetta();
             sem_post(&p->mutex[tipoattrezzo]);
+            pausetta();
             return;
         }
     } // Teoricamente si potrebbe fare un unico ciclo...
+    pausetta();
     for (int i=0; i<M; i++){
+        pausetta();
         if (p->attrezzi[tipoattrezzo].stato[i] == FREE){
+            pausetta();
             p->attrezzi[tipoattrezzo].stato[i] = BUSY;
+            pausetta();
             p->attrezzi[tipoattrezzo].persona[i] = numeropersona;
+            pausetta();
             sem_post(&p->mutex[tipoattrezzo]);
+            pausetta();
             return;
         }
     }
+    pausetta();
     // Non ci sono attrezzi liberi
     coda_add(&p->attrezzi[tipoattrezzo].coda, numeropersona);
+    pausetta();
     // ERRORE 1: "Dimenticato" (era presente in brutta copia!! :-( ) post del mutex!
     sem_post(&p->mutex[tipoattrezzo]);
+    pausetta();
     sem_wait(&p->persone[numeropersona]);
+    pausetta();
     // Ora c'è un attrezzo, ripetiamo la stessa ricerca
     for (int i=0; i<M; i++){
+        pausetta();
         if (p->attrezzi[tipoattrezzo].stato[i]==FREE){
+            pausetta();
             p->attrezzi[tipoattrezzo].persona[i]=numeropersona;
+            pausetta();
             p->attrezzi[tipoattrezzo].stato[i]=BUSY;
+            pausetta();
             sem_post(&p->mutex[tipoattrezzo]);
+            pausetta();
             return;
         }
     }
@@ -113,34 +158,52 @@ void usaattrezzo(struct palestra_t *p,
 
 void prenota(struct palestra_t *p, int numeropersona,
         int tipoattrezzo){
+    pausetta();
     sem_wait(&p->mutex[tipoattrezzo]);
+    pausetta();
     for (int i=0; i<M; i++){
+        pausetta();
         if (p->attrezzi[tipoattrezzo].stato[i]==FREE){
+            pausetta();
             p->attrezzi[tipoattrezzo].stato[i]=BOOKED;
+            pausetta();
             p->attrezzi[tipoattrezzo].persona[i]=numeropersona;
+            pausetta();
             sem_post(&p->mutex[tipoattrezzo]);
+            pausetta();
             return;
         }
     }
+    pausetta();
     sem_post(&p->mutex[tipoattrezzo]);
 }
 
 void fineuso(struct palestra_t *p, int numeropersona, int
         tipoattrezzo){
+    pausetta();
     sem_wait(&p->mutex[tipoattrezzo]);
+    pausetta();
     for (int i=0;i<M;i++){
+        pausetta();
         if (p->attrezzi[tipoattrezzo].persona[i]==numeropersona
         && p->attrezzi[tipoattrezzo].stato[i] == BUSY){
+            pausetta();
             p->attrezzi[tipoattrezzo].persona[i]=-1;
+            pausetta();
             p->attrezzi[tipoattrezzo].stato[i]=FREE;
+            pausetta();
             break;
         }
     }
+    pausetta();
     if (coda_isempty(&p->attrezzi[tipoattrezzo].coda)){
+        pausetta();
         sem_post(&p->mutex[tipoattrezzo]);
     } else {
+        pausetta();
         sem_post(&p->persone[coda_rm(&p->attrezzi[tipoattrezzo].coda)]);
     }
+    pausetta();
 }
 
 void *persona(void *arg)
@@ -152,13 +215,19 @@ void *persona(void *arg)
     for (i=E-1; i>=0; i--)
     {
         printf("%d usa %d\n", numeropersona, attrezzocorrente);
+        pausetta();
         usaattrezzo(&palestra, numeropersona, attrezzocorrente);
+        pausetta();
         printf("%d ha usato %d\n", numeropersona, attrezzocorrente);
         printf("%d prenota %d\n", numeropersona, prossimoattrezzo);
+        pausetta();
         if (i!=0) prenota(&palestra, numeropersona, prossimoattrezzo);
+        pausetta();
         printf("%d ha prenotato %d\n", numeropersona, prossimoattrezzo);
         printf("%d finisce %d\n", numeropersona, attrezzocorrente);
+        pausetta();
         fineuso(&palestra, numeropersona, attrezzocorrente);
+        pausetta();
         printf("%d ha finito %d\n", numeropersona, attrezzocorrente);
         if (i!=0) {
             attrezzocorrente = prossimoattrezzo;
@@ -171,11 +240,8 @@ void *persona(void *arg)
 
 int main()
 {
-    srand(123);
+    srand(time(NULL));
     setvbuf(stdout, NULL, _IONBF, 0);
-    pthread_attr_t a;
-    pthread_attr_init(&a);
-    pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
     int i;
     pthread_t thread[P];
     init_palestra(&palestra);
@@ -183,6 +249,9 @@ int main()
     {
         pthread_create(&thread[i], 0, persona, (void *)i);
     }
-    pthread_join(thread[0], 0);
+    for (i=0; i<P; i++)
+    {
+        pthread_join(thread[i], NULL);
+    }
     return 0;
 }
