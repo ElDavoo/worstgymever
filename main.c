@@ -236,27 +236,30 @@ void *persona(void *arg)
     int prossimoattrezzo = rand()%N;
     for (i=E-1; i>=0; i--)
     {
-        printf("%d usa %d\n", numeropersona, attrezzocorrente);
+        //printf("%d usa %d\n", numeropersona, attrezzocorrente);
         pausetta();
         usaattrezzo(&palestra, numeropersona, attrezzocorrente);
         pausetta();
-        printf("%d ha usato %d\n", numeropersona, attrezzocorrente);
-        printf("%d prenota %d\n", numeropersona, prossimoattrezzo);
+        //printf("%d ha usato %d\n", numeropersona, attrezzocorrente);
+        //printf("%d prenota %d\n", numeropersona, prossimoattrezzo);
         pausetta();
         if (i!=0) prenota(&palestra, numeropersona, prossimoattrezzo);
         pausetta();
-        printf("%d ha prenotato %d\n", numeropersona, prossimoattrezzo);
-        printf("%d finisce %d\n", numeropersona, attrezzocorrente);
+        //printf("%d ha prenotato %d\n", numeropersona, prossimoattrezzo);
+        //printf("%d finisce %d\n", numeropersona, attrezzocorrente);
         pausetta();
         fineuso(&palestra, numeropersona, attrezzocorrente);
         pausetta();
-        printf("%d ha finito %d\n", numeropersona, attrezzocorrente);
+        //printf("%d ha finito %d\n", numeropersona, attrezzocorrente);
         if (i!=0) {
             attrezzocorrente = prossimoattrezzo;
             prossimoattrezzo = rand()%N;
+            if (i%50 == 0) {
+                printf(".");
+            }
         }
     }
-    printf("%d ha finito di usare la palestra!", numeropersona);
+    printf("!");
     return NULL;
 }
 
@@ -296,5 +299,6 @@ int main()
         sem_getvalue(&palestra.persone[i], &a);
         assert(a==0);
     }
+    printf("\n");
     return 0;
 }
