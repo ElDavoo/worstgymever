@@ -7,11 +7,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <assert.h>
 
 void pausetta(void){
     struct timespec t;
     t.tv_sec = 0;
-    t.tv_nsec = (rand()%100000);
+    t.tv_nsec = (rand()%100);
     nanosleep(&t, NULL);
 }
 
@@ -27,7 +28,10 @@ int coda_isempty(struct coda_t *c){
     int i;
     pausetta();
     sem_wait(&c->mutex);
+    sem_getvalue(&c->mutex, &i);
+    assert(i==0);
     pausetta();
+    assert(c->size>=0);
     i=c->size==0;
     pausetta();
     sem_post(&c->mutex);
@@ -46,6 +50,9 @@ void coda_dump(struct coda_t *c){
 void coda_add(struct coda_t *c, int persona){
     pausetta();
     sem_wait(&c->mutex);
+    int i;
+    sem_getvalue(&c->mutex, &i);
+    assert(i==0);
     pausetta();
     c->coda[c->size]=persona;
     pausetta();
@@ -58,7 +65,11 @@ void coda_add(struct coda_t *c, int persona){
 int coda_rm(struct coda_t *c){
     pausetta();
     sem_wait(&c->mutex);
+    int a;
+    sem_getvalue(&c->mutex, &a);
+    assert(a==0);
     pausetta();
+    assert(c->size>0);
     int p=c->coda[0];
     pausetta();
     for (int i=0; i<c->size; i++){
@@ -104,6 +115,9 @@ void usaattrezzo(struct palestra_t *p,
         int numeropersona, int tipoattrezzo){
     pausetta();
     sem_wait(&p->mutex[tipoattrezzo]);
+    int a;
+    sem_getvalue(&p->mutex[tipoattrezzo], &a);
+    assert(a==0);
     pausetta();
     for (int i=0; i<M; i++){
         pausetta();
@@ -139,6 +153,8 @@ void usaattrezzo(struct palestra_t *p,
     sem_post(&p->mutex[tipoattrezzo]);
     pausetta();
     sem_wait(&p->persone[numeropersona]);
+    sem_getvalue(&p->persone[numeropersona], &a);
+    assert(a==0);
     pausetta();
     // Ora c'è un attrezzo, ripetiamo la stessa ricerca
     for (int i=0; i<M; i++){
@@ -160,6 +176,9 @@ void prenota(struct palestra_t *p, int numeropersona,
         int tipoattrezzo){
     pausetta();
     sem_wait(&p->mutex[tipoattrezzo]);
+    int a;
+    sem_getvalue(&p->mutex[tipoattrezzo], &a);
+    assert(a==0);
     pausetta();
     for (int i=0; i<M; i++){
         pausetta();
@@ -182,6 +201,9 @@ void fineuso(struct palestra_t *p, int numeropersona, int
         tipoattrezzo){
     pausetta();
     sem_wait(&p->mutex[tipoattrezzo]);
+    int a;
+    sem_getvalue(&p->mutex[tipoattrezzo], &a);
+    assert(a==0);
     pausetta();
     for (int i=0;i<M;i++){
         pausetta();
@@ -252,6 +274,27 @@ int main()
     for (i=0; i<P; i++)
     {
         pthread_join(thread[i], NULL);
+    }
+    // Assert
+    for (i=0; i<N; i++)
+    {
+        assert(coda_isempty(&palestra.attrezzi[i].coda));
+        int a;
+        sem_getvalue(&palestra.mutex[i], &a);
+        assert(a==1);
+        sem_getvalue(&palestra.attrezzi[i].coda.mutex, &a);
+        assert(a==1);
+        for (int j=0; j<M; j++)
+        {
+            assert(palestra.attrezzi[i].stato[j]==FREE);
+            assert(palestra.attrezzi[i].persona[j]==-1);
+        }
+    }
+    for (i=0; i<P; i++)
+    {
+        int a;
+        sem_getvalue(&palestra.persone[i], &a);
+        assert(a==0);
     }
     return 0;
 }
